@@ -1798,7 +1798,7 @@ const Lab = (() => {
   function whoChip() {
     if (!Sync.has || !WHO) return '';
     const label = WHO.local ? `${esc(WHO.name || '이름 없음')} · 이 기기에만 저장` : `${esc(WHO.className || WHO.classId)} ${WHO.no}번 ${esc(WHO.name)}`;
-    return `<div class="who">${ICON.user}<span>${label}</span>${WHO.local ? '' : `<span class="sync s-${Sync.status}">${SYNC_TXT[Sync.status] || ''}</span>`}<button class="btn small ghost" data-act="logout">바꾸기</button></div>`;
+    return `<div class="who">${ICON.user}<span>${label}</span>${WHO.local ? '' : `<span class="sync s-${Sync.status}">${SYNC_TXT[Sync.status] || ''}</span>`}</div>`;
   }
 
   function renderHome() {
@@ -2335,6 +2335,14 @@ const Lab = (() => {
   }
   function boardDown(e) {
     if (S.drag || S.done || S.clearing) return;
+    if (e.button === 2) {
+      // 오른쪽 클릭: 판 위의 조각을 바로 뺀다 (미리 놓인 출발 조각은 그대로)
+      e.preventDefault();
+      const xy = localXY(e);
+      const i = hitPiece(toW(xy[0], xy[1]));
+      if (i >= 0 && !S.pcs[i].fixed) { S.lastTap = null; removePiece(S.pcs[i].id); }
+      return;
+    }
     const c = cv(); c.setPointerCapture(e.pointerId);
     const xy = localXY(e);
     S.ptrs.set(e.pointerId, xy);
@@ -2905,8 +2913,8 @@ const Lab = (() => {
         : `<p>기록 서버 없이 쓸 때는 링크로 반마다 정해요. 5단계까지 하는 반에는 학생에게 주는 주소 끝에 <span class="mono">#s5</span>를 붙여 주세요. 예) <span class="mono">…/binteum.html#s5</span></p>`}
       <label class="check"><input type="checkbox" id="tOpen5" ${TD.open5 ? 'checked' : ''}> 이 기기에서 5단계 열기</label>
       <label class="check"><input type="checkbox" id="tAll" ${TD.allOpen ? 'checked' : ''}> 이 기기에서 모든 단계 열기 <span class="hint-line">(전자칠판 시연용 · 반 설정보다 먼저 적용)</span></label>
-      <h4>이 컴퓨터의 기록</h4><p>${Sync.on ? '학생 기록은 선생님의 기록 서버에 저장되고, 이 브라우저에도 사본이 남아요. 학생이 나갈 때는 첫 화면의 <b>바꾸기</b>를 누르면 이 기기의 사본이 지워져요.' : '학생 기록은 이 브라우저에만 저장돼요. 노트북을 다른 반과 같이 쓴다면 수업을 시작할 때 지워 주세요.'}</p>
-      <div class="row"><button class="btn" id="tUnlockAll">모든 퍼즐 별 채우기(시연용)</button><button class="btn" id="tWipe">이 컴퓨터의 기록 모두 지우기</button></div>
+      <h4>이 컴퓨터의 기록</h4><p>${Sync.on ? '학생 기록은 선생님의 기록 서버에 저장되고, 이 브라우저에도 사본이 남아요. 학생이 반이나 번호를 잘못 골라 들어왔다면 <b>학생 로그인 풀기</b>를 눌러 다시 들어가게 해 주세요. 서버에 저장된 기록은 지워지지 않아요.' : '학생 기록은 이 브라우저에만 저장돼요. 노트북을 다른 반과 같이 쓴다면 수업을 시작할 때 지워 주세요.'}</p>
+      <div class="row">${Sync.on ? '<button class="btn" data-act="logout">학생 로그인 풀기</button>' : ''}<button class="btn" id="tUnlockAll">모든 퍼즐 별 채우기(시연용)</button><button class="btn" id="tWipe">이 컴퓨터의 기록 모두 지우기</button></div>
       <p class="hint-line" id="tMsg"></p></div>`;
     openSheet(`<div class="sheet-head"><h3>선생님 메뉴</h3><button class="btn small" data-act="close">닫기</button></div>
       <div class="tabs" role="tablist">${tabs.map(t => `<button class="tab${t[0] === tab ? ' on' : ''}" data-ttab="${t[0]}" role="tab" aria-selected="${t[0] === tab}">${t[1]}</button>`).join('')}</div>${body}`, true);
@@ -2941,7 +2949,7 @@ const Lab = (() => {
       <h4>5단계 여닫기</h4>
       <p>5단계(나만의 모양)는 처음에 닫혀 있어요. 기록 서버를 쓰면 교사용 대시보드에서 반마다 스위치로 열고, 기록 서버 없이 쓰면 학생에게 주는 주소 끝에 <span class="mono">#s5</span>를 붙여 엽니다. 이 기기만 열려면 '관리' 탭을 쓰세요.</p>
       <h4>조작 요약</h4>
-      <ul><li>끌어서 놓기, 판의 조각은 두 번 눌러 빼기(또는 아래 받침으로 끌어다 놓기)</li><li>Ctrl + Z 되돌리기, 판 빈 곳을 끌면 이동, 휠로 확대</li><li>자유 만들기에서만 R 키로 고른 조각 돌리기</li></ul>
+      <ul><li>끌어서 놓기, 판의 조각은 우클릭이나 두 번 눌러 빼기(또는 아래 받침으로 끌어다 놓기)</li><li>Ctrl + Z 되돌리기, 판 빈 곳을 끌면 이동, 휠로 확대</li><li>자유 만들기에서만 R 키로 고른 조각 돌리기</li></ul>
     </div>`,
     level: `<div class="guide">
       <p>학생이 패들렛에 올린 <b>나의 기록 그림</b>(해결 수·도감 수·규칙 무늬·만든 퍼즐·생각 쓰기)과 수업 중 관찰을 함께 봅니다.</p>
@@ -3054,10 +3062,12 @@ const Lab = (() => {
   }
   ACT.logout = async (el) => {
     if (!el.dataset.sure) {
-      el.dataset.sure = '1'; el.textContent = '한 번 더 누르면 나가요';
-      setTimeout(() => { if (el.isConnected) { el.dataset.sure = ''; el.textContent = '바꾸기'; } }, 2800);
+      const label = el.textContent;
+      el.dataset.sure = '1'; el.textContent = '한 번 더 누르면 로그인을 풀어요';
+      setTimeout(() => { if (el.isConnected) { el.dataset.sure = ''; el.textContent = label; } }, 2800);
       return;
     }
+    closeSheet();
     trackStop(false);
     try { await Sync.flush(); } catch (e) { }
     if (Sync.unsub) { try { Sync.unsub(); } catch (e) { } }
