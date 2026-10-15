@@ -1829,10 +1829,8 @@ const Lab = (() => {
     }
     const dexN = DEX_ALL.filter(c => P.dex[c]).length;
     const uniN = P.uni.length;
-    const open5 = stageOpen(5);
-    h += `<section class="stage${open5 ? '' : ' locked'}"><div class="stage-head"><span class="stage-no">5단계</span><h2 class="stage-name">나만의 모양</h2><span class="stage-sub">무늬를 만들고, 퍼즐로 내고, 친구 퍼즐을 풀어요</span>${open5 ? '' : `<span class="lock-badge">${ICON.lock}아직 열리지 않았어요</span>`}</div>
-      ${open5 ? '' : `<div class="panel lock-panel"><p>나만의 모양은 선생님이 열어 주시면 할 수 있어요. 그동안 1~4단계의 별을 모두 모아 보세요.</p></div>`}
-      <div class="make-row"${open5 ? '' : ' hidden'}>
+    if (stageOpen(5)) h += `<section class="stage"><div class="stage-head"><span class="stage-no">5단계</span><h2 class="stage-name">나만의 모양</h2><span class="stage-sub">무늬를 만들고, 퍼즐로 내고, 친구 퍼즐을 풀어요</span></div>
+      <div class="make-row">
         <div class="panel">
           <div class="make-hero"><div><h3>자유 만들기</h3><p>조각을 마음껏 써서 나만의 무늬를 만들어요. 모든 꼭짓점이 같은 모양이 되는 '규칙 무늬'에 도전하고, 완성한 모양은 친구에게 낼 퍼즐 코드로 바꿀 수 있어요.</p></div>${svgOfPolys(heroPolys(), { pad: 0.1 })}</div>
           <div class="row"><button class="btn primary" data-act="free">${ICON.puzzle}만들기 시작</button><span class="hint-line">규칙 무늬 ${uniN}종 · 만든 퍼즐 ${P.made.length}개</span></div>
@@ -1844,6 +1842,8 @@ const Lab = (() => {
           <div class="row"><button class="btn primary" data-act="playcode">풀기</button></div>
         </div>
       </div>
+    </section>`;
+    h += `<section class="stage">
       <div class="panel"><div class="dex-mini"><h3 style="font-size:20px">꼭짓점 도감</h3><div class="meter" aria-hidden="true"><i style="width:${(dexN / 15 * 100).toFixed(0)}%"></i></div><span class="mono">${dexN} / 15</span><button class="btn small" data-act="dex">${ICON.book}펼치기</button></div><p>한 점에 빈틈없이 모이는 정다각형의 조합을 찾을 때마다 여기에 모여요.</p></div>
     </section>`;
     wrap.innerHTML = h;
@@ -1887,6 +1887,7 @@ const Lab = (() => {
   function startLevel(def, opts = {}) {
     const stg = def.custom ? 5 : def.stage;
     if (!stageOpen(stg)) { toast('선생님이 아직 열지 않은 단계예요', 2600); if (!$('#play').hidden) show('home'); return; }
+    closeSheet();
     const lv = prep(def);
     trackStart(lv);
     S.lv = lv; S.pcs = []; S.undo = []; S.hints = 0; S.ghost = null; S.badId = null; S.done = false; S.sel = null;
@@ -2552,6 +2553,7 @@ const Lab = (() => {
     let next = null;
     if (!lv.custom && idx >= 0) for (let i = idx + 1; i < ORDER.length; i++) if (stageOpen(DEFS[i].stage)) { next = DEFS[i]; break; }
     setTimeout(() => {
+      if (S.lv !== lv || !S.done || $('#play').hidden) return;
       openSheet(`
         <div class="sheet-head"><h3>완성!</h3></div>
         <div class="big-stars">${STAR(stars >= 1)}${STAR(stars >= 2)}</div>
@@ -2744,17 +2746,20 @@ const Lab = (() => {
     if (WHO && !WHO.local) return `${WHO.className || WHO.classId} ${WHO.no}번 ${WHO.name}`;
     return P.name || '';
   }
+  // 5단계(나만의 모양) 기록을 보여 줄지: 열려 있거나, 이미 해 둔 것이 있을 때만
+  const show5 = s => stageOpen(5) || s.uni.length > 0 || s.made > 0 || s.solved > 0;
   function openRecord() {
     const s = stats();
+    const five = show5(s);
     const h = `<div class="sheet-head"><h3>나의 기록</h3><button class="btn small" data-act="close">닫기</button></div>
       <div class="row"><label class="lab" for="recName">이름</label><input class="field" id="recName" style="max-width:260px" maxlength="20" placeholder="번호와 이름" value="${esc(displayName())}"></div>
       ${Sync.on ? `<p class="hint-line">${ICON.cloud} 기록은 선생님께 자동으로 저장돼요. 생각 쓰기도 함께 저장돼요.</p>` : ''}
-      <div class="rec-grid">
+      <div class="rec-grid"${five ? '' : ' style="grid-template-columns:repeat(2,minmax(0,1fr))"'}>
         <div class="rec-box"><span class="k">해결한 퍼즐</span><span class="v">${s.cleared}<small> / ${s.total}</small></span></div>
         <div class="rec-box"><span class="k">모은 별</span><span class="v">${s.stars}<small> / ${s.total * 2}</small></span></div>
         <div class="rec-box"><span class="k">꼭짓점 도감</span><span class="v">${s.dex}<small> / 15</small></span></div>
-        <div class="rec-box"><span class="k">규칙 무늬</span><span class="v">${s.uni.length}<small>종</small></span></div>
-        <div class="rec-box"><span class="k">만든 퍼즐 · 푼 친구 퍼즐</span><span class="v">${s.made}<small>개</small> · ${s.solved}<small>개</small></span></div>
+        ${five ? `<div class="rec-box"><span class="k">규칙 무늬</span><span class="v">${s.uni.length}<small>종</small></span></div>
+        <div class="rec-box"><span class="k">만든 퍼즐 · 푼 친구 퍼즐</span><span class="v">${s.made}<small>개</small> · ${s.solved}<small>개</small></span></div>` : ''}
         <div class="rec-box"><span class="k">힌트 쓴 횟수</span><span class="v">${s.hints}<small>번</small></span></div>
       </div>
       <div class="rec-list">${s.st.map(t => `<div><b>${t.id}단계 ${t.name}</b> ${t.c} / ${t.n} · 별 ${t.s}</div>`).join('')}
@@ -2814,25 +2819,26 @@ const Lab = (() => {
   function saveRecordImage() {
     readColors();
     const s = stats();
-    const c = document.createElement('canvas'); c.width = 1200; c.height = 1500;
+    const boxes = [['해결한 퍼즐', `${s.cleared} / ${s.total}`], ['모은 별', `${s.stars} / ${s.total * 2}`], ['꼭짓점 도감', `${s.dex} / 15`]]
+      .concat(show5(s) ? [['규칙 무늬', `${s.uni.length}종`], ['만든 퍼즐', `${s.made}개`], ['푼 친구 퍼즐', `${s.solved}개`]] : []);
+    const rowsUp = (2 - Math.ceil(boxes.length / 3)) * 150;  // 한 줄이면 아래 내용을 150px 올림
+    const c = document.createElement('canvas'); c.width = 1200; c.height = 1500 - rowsUp;
     const ctx = c.getContext('2d');
     const F = (w, px, fam = '"IBM Plex Sans KR", "Malgun Gothic", sans-serif') => `${w} ${px}px ${fam}`;
-    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, 1200, 1500);
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, 1200, c.height);
     ctx.fillStyle = '#EEF1F5'; ctx.fillRect(0, 0, 1200, 170);
     polysToCanvas(ctx, flowerPolys('3.4.6.4'), [50, 30, 110, 110], { pad: 0.1 });
     ctx.fillStyle = '#1B2232'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     ctx.font = F('400', 64, '"Do Hyeon", "Malgun Gothic", sans-serif'); ctx.fillText('빈틈없이 · 나의 기록', 185, 105);
     ctx.font = F('500', 26); ctx.fillStyle = '#505B70';
     const dt = new Date(); ctx.fillText(`${displayName() || '이름 없음'}   ${dt.getFullYear()}.${dt.getMonth() + 1}.${dt.getDate()}`, 187, 145);
-    const boxes = [['해결한 퍼즐', `${s.cleared} / ${s.total}`], ['모은 별', `${s.stars} / ${s.total * 2}`], ['꼭짓점 도감', `${s.dex} / 15`],
-      ['규칙 무늬', `${s.uni.length}종`], ['만든 퍼즐', `${s.made}개`], ['푼 친구 퍼즐', `${s.solved}개`]];
     boxes.forEach((b, i) => {
       const x = 50 + (i % 3) * 370, y = 210 + Math.floor(i / 3) * 150;
       ctx.fillStyle = '#F4F6F9'; roundRect(ctx, x, y, 350, 128, 18); ctx.fill();
       ctx.fillStyle = '#505B70'; ctx.font = F('600', 24); ctx.fillText(b[0], x + 24, y + 44);
       ctx.fillStyle = '#1B2232'; ctx.font = F('400', 52, '"Do Hyeon", "Malgun Gothic", sans-serif'); ctx.fillText(b[1], x + 24, y + 104);
     });
-    let y = 560;
+    let y = 560 - rowsUp;
     ctx.font = F('600', 26); ctx.fillStyle = '#1B2232';
     ctx.fillText(s.st.map(t => `${t.id}단계 ${t.c}/${t.n}`).join('    ') + `    힌트 ${s.hints}번`, 50, y);
     y += 40;
@@ -2853,10 +2859,10 @@ const Lab = (() => {
     const memo = (P.memo || '(아직 쓰지 않았어요)').replace(/\s+/g, ' ');
     let line = '';
     for (const ch of memo) {
-      if (ctx.measureText(line + ch).width > 1100) { ctx.fillText(line, 50, y); y += 40; line = ''; if (y > 1460) break; }
+      if (ctx.measureText(line + ch).width > 1100) { ctx.fillText(line, 50, y); y += 40; line = ''; if (y > c.height - 40) break; }
       line += ch;
     }
-    if (line && y <= 1460) ctx.fillText(line, 50, y);
+    if (line && y <= c.height - 40) ctx.fillText(line, 50, y);
     offerFile(c, `빈틈없이-기록${P.name ? '-' + P.name.replace(/[\\/:*?"<>|]/g, '') : ''}.png`, '나의 기록');
   }
 
