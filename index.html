@@ -266,6 +266,12 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.5; }
   color: var(--ink); background: var(--surface-2); padding: 0 6px; border-radius: 99px;
 }
 .piece-btn.empty { opacity: .35; cursor: default; }
+.piece-btn .kbd {
+  position: absolute; top: 4px; left: 6px; min-width: 17px; text-align: center; font-family: var(--f-mono); font-size: 11px; font-weight: 600; line-height: 16px;
+  color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px;
+}
+.piece-btn.carrying { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-2); }
+.piece-btn.carrying .kbd { color: var(--surface); background: var(--accent); border-color: var(--accent); }
 .piece-btn.pulse { animation: pulse 1.4s ease-in-out infinite; border-color: var(--accent); }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 var(--accent-2); } 50% { box-shadow: 0 0 0 7px var(--accent-2); } }
 .tray .tray-sep { flex: 1; }
@@ -1981,7 +1987,7 @@ const Lab = (() => {
     const cls = e.target.closest('[data-cls]');
     if (cls) { LG.cls = cls.dataset.cls; renderLogin(); return; }
     const act = e.target.closest('[data-act]');
-    if (act) { ACT[act.dataset.act] && ACT[act.dataset.act](act, e); return; }
+    if (act) { if (act.dataset.act !== 'undo') endCarry(); ACT[act.dataset.act] && ACT[act.dataset.act](act, e); return; }
     if (e.target.closest('#logo')) {
       const now = Date.now(); logoTaps = logoTaps.filter(t => now - t < 3000); logoTaps.push(now);
       if (logoTaps.length >= 5) { logoTaps = []; openTeacher(); }
@@ -2004,7 +2010,7 @@ const Lab = (() => {
   function startLevel(def, opts = {}) {
     const stg = def.custom ? 5 : def.stage;
     if (!stageOpen(stg)) { toast('선생님이 아직 열지 않은 단계예요', 2600); if (!$('#play').hidden) show('home'); return; }
-    closeSheet();
+    closeSheet(); endCarry();
     const lv = prep(def);
     trackStart(lv);
     S.lv = lv; S.pcs = []; S.undo = []; S.hints = 0; S.hintBase = 0; S.justFound = false; S.ghost = null; S.badId = null; S.done = false; S.sel = null;
@@ -2048,7 +2054,7 @@ const Lab = (() => {
   }
 
   function show(id) {
-    if (id !== 'play') trackStop(false);
+    if (id !== 'play') { endCarry(); trackStop(false); }
     for (const s of $$('.screen')) s.hidden = s.id !== id;
     if (id === 'home') { renderHome(); }
   }
@@ -2080,11 +2086,11 @@ const Lab = (() => {
   function buildTray() {
     const lv = S.lv;
     let h = '';
-    for (const n of lv.allow) {
+    lv.allow.forEach((n, i) => {
       const cnt = S.inv ? (S.inv[n] || 0) : null;
-      h += `<div class="piece-btn${cnt === 0 ? ' empty' : ''}" data-n="${n}" role="button" aria-label="${NAME[n]} ${cnt === null ? '' : cnt + '개 남음'}">
-        <span class="cnt">${cnt === null ? '∞' : '×' + cnt}</span>${pieceIcon(n)}<span class="pname">${NAME[n]}</span>${lv.showAngles ? `<span class="pang">${fmtDeg(deg(n))}</span>` : ''}</div>`;
-    }
+      h += `<div class="piece-btn${cnt === 0 ? ' empty' : ''}" data-n="${n}" role="button" aria-label="${NAME[n]} ${cnt === null ? '' : cnt + '개 남음'}${i < 9 ? ` · 숫자 키 ${i + 1}` : ''}">
+        ${i < 9 ? `<span class="kbd" title="숫자 키 ${i + 1}을 누르면 이 조각이 마우스를 따라와요">${i + 1}</span>` : ''}<span class="cnt">${cnt === null ? '∞' : '×' + cnt}</span>${pieceIcon(n)}<span class="pname">${NAME[n]}</span>${lv.showAngles ? `<span class="pang">${fmtDeg(deg(n))}</span>` : ''}</div>`;
+    });
     h += `<div class="tray-sep"></div><div class="tray-tools">
       <button class="btn icon-btn" data-act="rotate" aria-label="돌리기" title="돌리기 (R)" ${lv.type === 'free' && S.sel ? '' : 'hidden'}>${ICON.rot}</button>
       <button class="btn" data-act="remove" ${S.sel ? '' : 'hidden'}>${ICON.del}<span class="lbl">빼기</span></button>
@@ -2092,6 +2098,7 @@ const Lab = (() => {
       <button class="btn icon-btn" data-act="fit" aria-label="판 맞추기" title="판 맞추기">${ICON.fit}</button></div>`;
     $('#tray').innerHTML = h;
     for (const el of $$('#tray .piece-btn')) el.addEventListener('pointerdown', trayDown);
+    markCarryTray();
   }
   function refreshTray() {
     for (const el of $$('#tray .piece-btn')) {
@@ -2360,6 +2367,7 @@ const Lab = (() => {
 
   /* ---------- 끌기 ---------- */
   function trayDown(e) {
+    endCarry();
     if (S.done || S.clearing) return;
     const n = +e.currentTarget.dataset.n;
     if (S.inv && !(S.inv[n] > 0)) { toast(`${NAME[n]}은 다 썼어요`); return; }
@@ -2409,30 +2417,75 @@ const Lab = (() => {
       if (d.piece) { pushUndoFrom(d); if (S.inv) S.inv[d.n] = (S.inv[d.n] || 0) + 1; changed(); }
       S.drag = null; draw(); return;
     }
+    if (tryPlace(d)) { S.drag = null; changed(); return; }
+    // 원래 자리로
+    if (d.piece) S.pcs.splice(Math.min(d.idx, S.pcs.length), 0, d.piece);
+    S.drag = null; draw();
+  }
+  // 끄는 조각을 지금 자리(붙을 자리 또는 마우스 자리)에 놓아 본다. 놓았으면 true
+  function tryPlace(d) {
     if (d.snap && d.snap.ok === 'ok') {
       pushUndoFrom(d);
       const p = mk(d.n, d.snap.v);
       S.pcs.push(p); S.placedAt.set(p.id, performance.now());
       if (!d.piece && S.inv) S.inv[d.n]--;
-      S.drag = null; changed(); return;
+      return true;
     }
     if (d.snap) {
       toast(d.snap.ok === 'overlap' ? '다른 조각과 겹쳐서 놓을 수 없어요' : '회색 자리 밖으로 삐져나와요');
-    } else if (lv.type === 'free' && d.float) {
-      const bb = G.bbox(d.float);
-      if (placeCheck(d.float, bb, S.pcs) === 'ok') {
+    } else if (S.lv.type === 'free' && d.float) {
+      if (placeCheck(d.float, G.bbox(d.float), S.pcs) === 'ok') {
         pushUndoFrom(d);
         const p = mk(d.n, d.float); S.pcs.push(p); S.placedAt.set(p.id, performance.now());
-        S.drag = null; changed(); return;
+        return true;
       }
       toast('다른 조각과 겹쳐서 놓을 수 없어요');
     } else if (!S.warnedFree) {
       S.warnedFree = true; toast('회색 자리나 다른 조각 가까이에 놓으면 착 붙어요');
     }
-    // 원래 자리로
-    if (d.piece) S.pcs.splice(Math.min(d.idx, S.pcs.length), 0, d.piece);
-    S.drag = null; draw();
+    return false;
   }
+
+  /* ---------- 숫자 키로 조각 집기: 조각이 마우스를 따라오고, 누르는 곳에 놓인다 ---------- */
+  let mouseXY = null;
+  window.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') mouseXY = [e.clientX, e.clientY]; }, { passive: true });
+  function markCarryTray() {
+    const n = S.drag && S.drag.carry ? S.drag.n : null;
+    for (const el of $$('#tray .piece-btn')) el.classList.toggle('carrying', +el.dataset.n === n);
+  }
+  function moveCarry(e) { if (S.drag && S.drag.carry && e.pointerType === 'mouse') moveDrag({ pointerId: 'carry', clientX: e.clientX, clientY: e.clientY }); }
+  function startCarry(n) {
+    if (!S.lv || S.done || S.clearing) return;
+    if (S.drag && !S.drag.carry) return;              // 마우스로 끄는 중이면 그대로
+    if (S.drag && S.drag.carry && S.drag.n === n) { endCarry(); return; }   // 같은 키를 또 누르면 내려놓기
+    if (S.inv && !(S.inv[n] > 0)) { toast(`${NAME[n]}은 다 썼어요`); return; }
+    endCarry();
+    const r = cv().getBoundingClientRect();
+    const at = mouseXY || [r.left + r.width / 2, r.top + r.height / 2];
+    S.drag = { pid: 'carry', carry: true, touch: false, active: true, snap: null, off: [0, 0], n, from: 'tray', rot: 0, cands: buildCands(n, null) };
+    S.sel = null; S.ghost = null; S.badId = null;
+    window.addEventListener('pointermove', moveCarry);
+    markCarryTray(); refreshTray();
+    moveDrag({ pointerId: 'carry', clientX: at[0], clientY: at[1] });
+    if (!S.carryTip) { S.carryTip = true; toast('누르는 곳에 조각이 놓여요. 그만하려면 Esc나 오른쪽 클릭', 3400); }
+  }
+  function endCarry() {
+    if (!S.drag || !S.drag.carry) return;
+    window.removeEventListener('pointermove', moveCarry);
+    S.drag = null; markCarryTray(); draw();
+  }
+  function carryPlace(e) {
+    const d = S.drag;
+    moveDrag({ pointerId: 'carry', clientX: e.clientX, clientY: e.clientY });
+    if (!tryPlace(d)) { draw(); return; }
+    S.drag = null;
+    changed();
+    // 같은 조각이 남아 있으면 계속 들고 있는다
+    if (S.done || S.clearing || $('#play').hidden || (S.inv && !(S.inv[d.n] > 0))) { window.removeEventListener('pointermove', moveCarry); markCarryTray(); draw(); return; }
+    S.drag = Object.assign(d, { snap: null, cands: buildCands(d.n, null) });
+    moveDrag({ pointerId: 'carry', clientX: e.clientX, clientY: e.clientY });
+  }
+
   function pushUndoFrom(d) {
     // 옮기던 조각을 잠깐 되돌려 놓고 상태 저장
     if (d.piece) { const tmp = S.pcs.slice(); S.pcs.splice(Math.min(d.idx, S.pcs.length), 0, d.piece); pushUndo(); S.pcs = tmp; }
@@ -2469,6 +2522,7 @@ const Lab = (() => {
     return best;
   }
   function boardDown(e) {
+    if (S.drag && S.drag.carry) { e.preventDefault(); if (e.button === 2) endCarry(); else if (e.button === 0 || e.pointerType !== 'mouse') carryPlace(e); return; }
     if (S.drag || S.done || S.clearing) return;
     if (e.button === 2) {
       // 오른쪽 클릭: 판 위의 조각을 바로 뺀다 (미리 놓인 출발 조각은 그대로)
@@ -2795,15 +2849,16 @@ const Lab = (() => {
       playCustom(r, code);
     },
     undo: () => {
-      if (S.drag || S.clearing || S.done) return;
+      if ((S.drag && !S.drag.carry) || S.clearing || S.done) return;
       const s = S.undo.pop(); if (!s) { toast('되돌릴 것이 없어요'); return; }
       restore(s); S.sel = null; S.ghost = null; S.badId = null;
       analyze(true); refreshTray(); renderPanel();
       if (S.lv.type === 'free') { P.creative = S.pcs.map(p => ({ n: p.n, v: p.v })); save(); }
       else saveProg();
+      if (S.drag && S.drag.carry) { S.drag.cands = buildCands(S.drag.n, null); if (S.inv && !(S.inv[S.drag.n] > 0)) endCarry(); else if (S.drag.lastXY) { const r = cv().getBoundingClientRect(); moveDrag({ pointerId: 'carry', clientX: S.drag.lastXY[0] + r.left, clientY: S.drag.lastXY[1] + r.top }); } }
       draw();
     },
-    reset: () => { if (S.drag) return; pushUndo(); startLevelKeepUndo(); },
+    reset: () => { endCarry(); if (S.drag) return; pushUndo(); startLevelKeepUndo(); },
     replay: () => { closeSheet(); if (S.lv.custom) playCustom(S.lv.decoded, S.lv.code, S.lv.meta, { fresh: true }); else startLevel(DEFS.find(d => d.id === S.lv.id), { fresh: true }); },
     friends: () => { closeSheet(); show('home'); const el = $('#fpPanel'); if (el) el.scrollIntoView({ block: 'center' }); },
     extend: () => { closeSheet(); extendPattern(true); },
@@ -2905,8 +2960,10 @@ const Lab = (() => {
         ${P.made.length ? `<div><b>마지막에 만든 퍼즐</b> ${esc(P.made[P.made.length - 1].title)} (조각 ${P.made[P.made.length - 1].n}개)</div>` : ''}</div>
       <label class="lab" for="recMemo">생각 쓰기 · 정오각형으로는 왜 한 점을 빈틈없이 둘러쌀 수 없을까요? 각의 크기로 설명해 보세요.</label>
       <textarea class="field" id="recMemo" maxlength="400" placeholder="예) 정오각형의 한 각은 ...">${esc(P.memo || '')}</textarea>
-      <p class="hint-line">다 썼으면 <b>그림으로 저장</b>하거나 <b class="mono">Win + Shift + S</b>로 이 창을 캡처해 패들렛에 올려요.</p>
-      <div class="actions"><button class="btn" data-act="close">닫기</button><button class="btn primary" id="recSave">${ICON.img}그림으로 저장</button></div>`;
+      ${Sync.on ? '' : `<p class="hint-line">다 썼으면 <b>그림으로 저장</b>하거나 <b class="mono">Win + Shift + S</b>로 이 창을 캡처해 패들렛에 올려요.</p>`}
+      <div class="actions">${Sync.on
+        ? `<button class="btn" id="recSave">${ICON.img}그림으로 저장</button><button class="btn primary" data-act="close">닫기</button>`
+        : `<button class="btn" data-act="close">닫기</button><button class="btn primary" id="recSave">${ICON.img}그림으로 저장</button>`}</div>`;
     openSheet(h, true);
     $('#recName').addEventListener('input', e => { P.name = e.target.value; save(); });
     if (Sync.on) { const el = $('#recName'); el.readOnly = true; el.title = '이름은 처음 들어올 때 정해요'; }
@@ -2940,7 +2997,7 @@ const Lab = (() => {
     const url = canvas.toDataURL('image/png');
     openSheet(`<div class="sheet-head"><h3>${esc(title)}</h3><button class="btn small" data-act="close">닫기</button></div>
       <img src="${url}" alt="${esc(title)}" style="width:100%;border-radius:12px;border:1px solid var(--line)">
-      <p class="hint-line">그림을 마우스 오른쪽 단추로 눌러 <b>이미지를 다른 이름으로 저장</b>하거나 <b>이미지 복사</b>해서 패들렛에 붙여 넣으세요. (휴대폰은 그림을 길게 눌러요)</p>`, true);
+      <p class="hint-line">그림을 마우스 오른쪽 단추로 눌러 <b>이미지를 다른 이름으로 저장</b>하거나 ${Sync.on ? '<b>이미지 복사</b>를 고르세요' : '<b>이미지 복사</b>해서 패들렛에 붙여 넣으세요'}. (휴대폰은 그림을 길게 눌러요)</p>`, true);
   }
   function saveCreationImage() {
     if (!S.pcs.length) { toast('먼저 조각을 놓아 보세요'); return; }
@@ -3117,15 +3174,15 @@ const Lab = (() => {
       <ol>
         <li><b>4단계 15분</b> 무늬 채우기. 완성 창에 뜨는 꼭짓점 이름(예: 3.4.6.4)을 읽어 보게 하고 "모든 꼭짓점이 같은 모양"이라는 말을 짚습니다.</li>
         <li><b>나만의 모양 20분</b> 규칙 무늬 미션 → 나만의 퍼즐을 만들어 <b>친구들에게 내기</b> → 첫 화면 <b>친구 퍼즐 풀기</b> 목록에서 골라 풀기. (기록 서버 없이 쓰면 퍼즐 코드를 패들렛에 올려 나눠요.) 시간이 모자란 반은 5단계를 열지 않고 4단계와 도감 채우기로 마무리해도 됩니다.</li>
-        <li><b>기록 10분</b> '나의 기록'에서 생각 쓰기를 채우고 그림으로 저장(또는 Win + Shift + S)해 패들렛에 제출.</li>
+        <li><b>기록 10분</b> '나의 기록'에서 생각 쓰기를 채웁니다. 기록 서버를 쓰면 쓴 글이 교사용 대시보드에 저절로 모여요. (기록 서버 없이 쓰면 그림으로 저장하거나 Win + Shift + S로 캡처해 패들렛에 제출)</li>
       </ol>
       <h4>5단계 여닫기</h4>
       <p>5단계(나만의 모양)는 처음에 닫혀 있어요. 기록 서버를 쓰면 교사용 대시보드에서 반마다 스위치로 열고, 기록 서버 없이 쓰면 학생에게 주는 주소 끝에 <span class="mono">#s5</span>를 붙여 엽니다. 이 기기만 열려면 '관리' 탭을 쓰세요.</p>
       <h4>조작 요약</h4>
-      <ul><li>끌어서 놓기, 판의 조각은 우클릭이나 두 번 눌러 빼기(또는 아래 받침으로 끌어다 놓기)</li><li>Ctrl + Z 되돌리기, 판 빈 곳을 끌면 이동, 휠로 확대</li><li>자유 만들기에서만 R 키로 고른 조각 돌리기</li></ul>
+      <ul><li>끌어서 놓기, 판의 조각은 우클릭이나 두 번 눌러 빼기(또는 아래 받침으로 끌어다 놓기)</li><li>숫자 키 1·2·3…으로 받침의 조각을 집으면 마우스를 따라오고, 누르는 곳에 놓여요 (같은 조각이 남아 있으면 계속 들고 있음 · Esc나 오른쪽 클릭으로 그만)</li><li>Ctrl + Z 되돌리기, 판 빈 곳을 끌면 이동, 휠로 확대</li><li>자유 만들기에서만 R 키로 고른 조각 돌리기</li></ul>
     </div>`,
     level: `<div class="guide">
-      <p>학생이 패들렛에 올린 <b>나의 기록 그림</b>(해결 수·도감 수·규칙 무늬·만든 퍼즐·생각 쓰기)과 수업 중 관찰을 함께 봅니다.</p>
+      <p>교사용 대시보드의 학생 기록(해결 수·도감 수·규칙 무늬·만든 퍼즐·생각 쓰기)과 수업 중 관찰을 함께 봅니다. 기록 서버 없이 쓰면 학생이 패들렛에 올린 <b>나의 기록 그림</b>으로 봅니다.</p>
       <div class="tbl-wrap"><table class="lvl-table">
         <tr><th>수준</th><th>기록으로 확인</th><th>설명으로 확인 (생각 쓰기)</th></tr>
         <tr><td><b>상</b></td><td>4단계 6개 이상 해결, 꼭짓점 도감 12개 이상, (5단계를 연 반은) 두 가지 이상 조각의 규칙 무늬 또는 조각 8개 이상 퍼즐 제작</td><td>108° × 3 = 324°는 모자라고 108° × 4 = 432°는 넘친다처럼 각의 합 360°와 비교해 정확히 설명</td></tr>
@@ -3158,8 +3215,15 @@ const Lab = (() => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); ACT.undo(); return; }
     if (e.key === 'Escape') {
       if (!$('#modal').hidden) { closeSheet(); return; }
+      if (S.drag && S.drag.carry) { endCarry(); return; }
       if (S.drag) { cancelDrag({ pointerId: S.drag.pid }); return; }
       S.sel = null; refreshTray(); draw(); return;
+    }
+    if (/^[1-9]$/.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (!$('#modal').hidden || !S.lv) return;
+      const n = S.lv.allow[+e.key - 1];
+      if (n) { e.preventDefault(); startCarry(n); }
+      return;
     }
     if (e.key === 'Delete' || e.key === 'Backspace') { if (S.sel) { e.preventDefault(); removePiece(S.sel); } return; }
     if (e.key === 'r' || e.key === 'R' || e.key === 'ㄱ' || e.key === 'e' || e.key === 'E' || e.key === 'ㄷ') {
