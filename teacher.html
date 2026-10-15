@@ -131,6 +131,7 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 .card .c-id { font-family: var(--f-mono); font-size: 12px; color: var(--ink-3); }
 .card .c-title { font-weight: 700; font-size: 15px; line-height: 1.3; }
 .card .stars { position: absolute; top: 14px; right: 14px; display: flex; gap: 1px; }
+.card .c-wip { position: absolute; top: 14px; left: 14px; font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--surface); border: 1px solid var(--accent); border-radius: 99px; padding: 0 8px; line-height: 1.6; }
 .stars svg { width: 15px; height: 15px; }
 .star-on { fill: var(--gold); }
 .star-off { fill: none; stroke: var(--ink-3); stroke-width: 1.4; opacity: .55; }
@@ -154,6 +155,32 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 textarea.field { resize: vertical; min-height: 84px; line-height: 1.5; }
 .code-field { font-family: var(--f-mono); font-size: 12.5px; word-break: break-all; }
 .dex-mini { display: flex; align-items: center; gap: 10px; }
+/* 친구 퍼즐 목록 */
+.fp-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fp-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; padding-right: 2px; }
+.fp-item { display: flex; align-items: center; gap: 6px; }
+.fp-play {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer;
+  padding: 7px 10px 7px 7px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit;
+  transition: border-color .12s, box-shadow .12s;
+}
+.fp-play:hover { border-color: var(--ink-3); box-shadow: var(--shadow); }
+.fp-thumb { width: 54px; height: 54px; flex: none; border-radius: 9px; background: var(--board); display: grid; place-items: center; overflow: hidden; }
+.fp-thumb svg { width: 90%; height: 90%; }
+.fp-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fp-txt b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-txt small { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fp-tag { flex: none; font-size: 12px; font-weight: 700; border-radius: 99px; padding: 1px 9px; white-space: nowrap; }
+.fp-tag.ok { color: var(--good); background: var(--good-2); }
+.fp-tag.me { color: var(--ink-2); background: var(--surface-2); }
+.fp-tag.wip { color: var(--accent); border: 1px solid var(--accent); }
+.fp-item.done .fp-thumb { opacity: .7; }
+.fp-del { flex: none; }
+.fp-empty { margin: 0; padding: 14px; border-radius: 12px; background: var(--board); color: var(--ink-2); font-size: 13.5px; }
+.fp-code summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.fp-code[open] summary { margin-bottom: 8px; }
+.fp-code textarea.field { min-height: 60px; }
+.fp-sent { padding: 12px 14px; border-radius: 12px; background: var(--good-2); color: var(--ink); font-size: 14px; line-height: 1.5; }
 .meter { flex: 1; height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
 .meter i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
 
@@ -256,6 +283,8 @@ textarea.field { resize: vertical; min-height: 84px; line-height: 1.5; }
   width: min(560px, 100%); max-height: 100%; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px;
 }
 .sheet.wide { width: min(860px, 100%); }
+/* 창 안의 내용이 길면 줄어들지 않고 창이 스크롤된다 (탭 줄이 눌려 사라지지 않게) */
+.sheet > * { flex-shrink: 0; }
 .sheet-head { display: flex; align-items: center; gap: 10px; }
 .sheet-head h3 { font-family: var(--f-display); font-weight: 400; font-size: 26px; flex: 1; }
 .sheet p { margin: 0; }
@@ -516,6 +545,14 @@ select.field { min-height: 34px; padding: 4px 8px; width: auto; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .toolbar .spacer { flex: 1; }
 .err-box { background: var(--warn-2); color: var(--ink); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+
+/* 친구 퍼즐 */
+.pz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.pz-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pz-card b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pz-card .btn { align-self: flex-start; margin-top: 4px; }
+.pz-art { aspect-ratio: 4 / 3; border-radius: 10px; background: var(--board); display: grid; place-items: center; overflow: hidden; }
+.pz-art svg { width: 86%; height: 86%; }
 
 </style>
 </head>
@@ -1354,7 +1391,7 @@ if (typeof module !== 'undefined') module.exports = Codes;
   let db = null, auth = null;
   if (HAS) { try { if (!firebase.apps.length) firebase.initializeApp(cfg); db = firebase.firestore(); auth = firebase.auth(); } catch (e) { console.warn(e); } }
 
-  const D = { mode: 'gate', user: null, classes: [], sel: null, raw: [], evals: {}, tab: 'students', sort: { k: 'no', dir: 1 }, hide: false, detail: null, unsub: [], err: '', lvSort: 'id' };
+  const D = { mode: 'gate', user: null, classes: [], sel: null, raw: [], evals: {}, puzzles: [], tab: 'students', sort: { k: 'no', dir: 1 }, hide: false, detail: null, unsub: [], err: '', lvSort: 'id' };
   try { D.hide = localStorage.getItem('binteum.dash.hide') === '1'; } catch (e) { }
 
   /* ---------- 작은 도구 ---------- */
@@ -1367,6 +1404,8 @@ if (typeof module !== 'undefined') module.exports = Codes;
     if (s < 86400) return Math.floor(s / 3600) + '시간 전';
     const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`;
   }
+  // 학생 앱과 같은 해시 (푼 친구 퍼즐 표시용)
+  const hashCode = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
   const mins = sec => (sec ? Math.max(1, Math.round(sec / 60)) + '분' : '—');
   const mmss = sec => { if (!sec && sec !== 0) return '—'; sec = Math.round(sec); return sec < 60 ? sec + '초' : Math.floor(sec / 60) + '분 ' + String(sec % 60).padStart(2, '0') + '초'; };
   const median = a => { if (!a.length) return null; const b = a.slice().sort((x, y) => x - y); const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
@@ -1408,19 +1447,23 @@ if (typeof module !== 'undefined') module.exports = Codes;
     setClass(id, data) { return db.collection('classes').doc(id).set(data, { merge: true }); },
     setEval(sid, data) { return db.collection('evals').doc(sid).set(Object.assign({ updatedAt: FV().serverTimestamp() }, data), { merge: true }); },
     async deleteStudent(sid) { await db.collection('students').doc(sid).delete(); await db.collection('evals').doc(sid).delete(); },
+    watchPuzzles(cid, cb, err) { return db.collection('classes').doc(cid).collection('puzzles').orderBy('createdAt', 'desc').onSnapshot(qs => cb(qs.docs.map(d => Object.assign({ id: d.id }, d.data({ serverTimestamps: 'estimate' })))), err); },
+    deletePuzzle(cid, pid) { return db.collection('classes').doc(cid).collection('puzzles').doc(pid).delete(); },
     async deleteClass(cid, withStudents) {
+      const pz = await db.collection('classes').doc(cid).collection('puzzles').get();
+      let refs = pz.docs.map(d => d.ref);
       if (withStudents) {
         const qs = await db.collection('students').where('classId', '==', cid).get();
         const ev = await db.collection('evals').where('classId', '==', cid).get();
-        const refs = qs.docs.map(d => d.ref).concat(ev.docs.map(d => d.ref));
-        for (let i = 0; i < refs.length; i += 400) { const b = db.batch(); refs.slice(i, i + 400).forEach(r => b.delete(r)); await b.commit(); }
+        refs = refs.concat(qs.docs.map(d => d.ref), ev.docs.map(d => d.ref));
       }
+      for (let i = 0; i < refs.length; i += 400) { const b = db.batch(); refs.slice(i, i + 400).forEach(r => b.delete(r)); await b.commit(); }
       await db.collection('classes').doc(cid).delete();
     },
   };
   const Demo = (() => {
-    const mem = { classes: {}, students: {}, evals: {} };
-    const subs = { classes: new Set(), students: new Set(), evals: new Set() };
+    const mem = { classes: {}, students: {}, evals: {}, puzzles: {} };
+    const subs = { classes: new Set(), students: new Set(), evals: new Set(), puzzles: new Set() };
     const emit = () => { for (const k of Object.keys(subs)) for (const f of subs[k]) f(); };
     const api = {
       mem,
@@ -1431,9 +1474,11 @@ if (typeof module !== 'undefined') module.exports = Codes;
       async setClass(id, data) { const c = mem.classes[id] || {}; mem.classes[id] = Object.assign({}, c, data, data.stages ? { stages: Object.assign({}, c.stages, data.stages) } : {}); emit(); },
       async setEval(sid, data) { mem.evals[sid] = Object.assign({}, mem.evals[sid], data); emit(); },
       async deleteStudent(sid) { delete mem.students[sid]; delete mem.evals[sid]; emit(); },
+      watchPuzzles(cid, cb) { const f = () => cb((mem.puzzles[cid] || []).slice().sort((a, b) => b.createdAt - a.createdAt)); subs.puzzles.add(f); f(); return () => subs.puzzles.delete(f); },
+      async deletePuzzle(cid, pid) { mem.puzzles[cid] = (mem.puzzles[cid] || []).filter(x => x.id !== pid); emit(); },
       async deleteClass(cid, withStudents) {
         if (withStudents) for (const [id, d] of Object.entries(mem.students)) if (d.classId === cid) { delete mem.students[id]; delete mem.evals[id]; }
-        delete mem.classes[cid]; emit();
+        delete mem.puzzles[cid]; delete mem.classes[cid]; emit();
       },
     };
     return api;
@@ -1503,7 +1548,17 @@ if (typeof module !== 'undefined') module.exports = Codes;
         };
       }
     }
-    Demo.mem.classes = classes; Demo.mem.students = students; Demo.mem.evals = {};
+    const puzzles = {};
+    for (const [sid, st] of Object.entries(students)) {
+      for (const m of st.made) {
+        (puzzles[st.classId] = puzzles[st.classId] || []).push({ id: 'pz' + sid + '_' + Math.round(rnd() * 1e6), classId: st.classId, sid, no: st.no, name: st.name, title: m.title, code: m.code, n: m.n, createdAt: now - Math.round(rnd() * 3600e3) });
+      }
+    }
+    for (const [cid, list] of Object.entries(puzzles)) {
+      const mates = Object.values(students).filter(x => x.classId === cid);
+      for (const pz of list) for (const st of mates) if (st.no !== pz.no && rnd() < 0.3) st.solvedIds = (st.solvedIds || []).concat(hashCode(pz.code));
+    }
+    Demo.mem.classes = classes; Demo.mem.students = students; Demo.mem.evals = {}; Demo.mem.puzzles = puzzles;
   }
 
   /* ---------- 학생 한 명 분석 ---------- */
@@ -1564,9 +1619,9 @@ if (typeof module !== 'undefined') module.exports = Codes;
     $('#drawer').hidden = true;
     const setup = `
       <ol>
-        <li>Firebase 콘솔에서 프로젝트를 만들고 <b>Firestore Database</b>를 만들어요. (위치: <span class="mono">asia-northeast3 서울</span>)</li>
+        <li>Firebase 콘솔에서 프로젝트를 만들고 왼쪽 메뉴 <b>Firestore</b>에서 데이터베이스를 만들어요. (위치: <span class="mono">asia-northeast3 서울</span>)</li>
         <li>Firestore <b>규칙</b> 탭에 함께 드린 <span class="mono">firestore.rules</span>를 붙여 넣고, 선생님 구글 계정 이메일을 적어 게시해요.</li>
-        <li><b>Authentication</b> → 로그인 방법에서 <b>익명</b>과 <b>Google</b>을 사용 설정해요.</li>
+        <li><b>Authentication</b> → <b>로그인 방법</b>에서 <b>익명</b>과 <b>Google</b>을 사용 설정해요.</li>
         <li>프로젝트 설정 → 웹 앱 추가 → 나오는 설정 값을 <span class="mono">firebase-config.js</span>에 붙여 넣어요.</li>
         <li>파일들을 호스팅(예: Firebase Hosting)에 올리고 이 페이지(<span class="mono">teacher.html</span>)를 다시 열어요.</li>
       </ol>`;
@@ -1603,11 +1658,12 @@ if (typeof module !== 'undefined') module.exports = Codes;
   let clsUnsub = [];
   function watchClass() {
     for (const u of clsUnsub) { try { u(); } catch (e) { } }
-    clsUnsub = []; D.raw = []; D.evals = {};
+    clsUnsub = []; D.raw = []; D.evals = {}; D.puzzles = []; D.pzErr = '';
     if (!D.sel) { render(); return; }
     const id = D.sel;
     clsUnsub.push(Store.watchStudents(id, list => { if (D.sel === id) { D.raw = list; render(); } }, e => toast('학생 기록을 불러오지 못했어요: ' + (e.code || e.message), 4000)));
     clsUnsub.push(Store.watchEvals(id, o => { if (D.sel === id) { D.evals = o; render(); } }, () => { }));
+    clsUnsub.push(Store.watchPuzzles(id, list => { if (D.sel === id) { D.puzzles = list; D.pzErr = ''; render(); } }, e => { D.puzzles = []; D.pzErr = e.code || e.message; render(); }));
   }
   function startDemo() { Store = Demo; makeDemo(); D.mode = 'demo'; D.sel = null; D.tab = 'students'; startClasses(); }
   function startLive() { Store = Live; D.mode = 'live'; D.err = ''; D.sel = null; startClasses(); }
@@ -1652,9 +1708,10 @@ if (typeof module !== 'undefined') module.exports = Codes;
       const nm = k === 5 ? '5단계 나만의 모양' : `${k}단계`;
       return `<button class="sw${on ? ' on' : ''}${k === 5 ? ' five' : ''}" data-sw="${k}" aria-pressed="${on}" title="${k}단계 ${on ? '닫기' : '열기'}">${nm}<span class="knob"></span></button>`;
     }).join('');
-    const tabs = [['students', '학생 현황'], ['levels', '퍼즐별'], ['dex', '꼭짓점 도감'], ['memos', '생각 쓰기'], ['eval', '수준 · 세특']];
+    const tabs = [['students', '학생 현황'], ['levels', '퍼즐별'], ['dex', '꼭짓점 도감'], ['memos', '생각 쓰기'], ['puzzles', `친구 퍼즐${D.puzzles.length ? ' ' + D.puzzles.length : ''}`], ['eval', '수준 · 세특']];
     let body = '';
-    if (!n) body = `<div class="empty">아직 이 반으로 들어온 학생이 없어요. 학생 화면에서 <b>${esc(c.name || c.id)}</b>을(를) 고르고 번호와 이름을 쓰면 여기에 나타나요.</div>`;
+    if (D.tab === 'puzzles') body = puzzlesTab(R, c);
+    else if (!n) body = `<div class="empty">아직 이 반으로 들어온 학생이 없어요. 학생 화면에서 <b>${esc(c.name || c.id)}</b>을(를) 고르고 번호와 이름을 쓰면 여기에 나타나요.</div>`;
     else if (D.tab === 'students') body = studentsTab(R);
     else if (D.tab === 'levels') body = levelsTab(R);
     else if (D.tab === 'dex') body = dexTab(R);
@@ -1744,6 +1801,24 @@ if (typeof module !== 'undefined') module.exports = Codes;
     return `<p class="hint-line">질문: 정오각형으로는 왜 한 점을 빈틈없이 둘러쌀 수 없을까요? 각의 크기로 설명해 보세요. · 108°와 324°(또는 36°), 432°(또는 넘친다)를 모두 써서 설명하면 '상'으로 봐요.</p>
       ${none.length ? `<p class="missing">아직 안 쓴 학생 ${none.length}명: ${none.map(s => who(s)).join(', ')}</p>` : ''}
       <div class="memo-grid">${order.map(s => `<div class="memo" data-stu="${esc(s.id)}"><div class="mh"><span>${who(s)}</span>${lvBadge(s.mem, '설명 기준')}</div><p>${esc(s.memo)}</p>${memoTagsHTML(s.memoTags)}</div>`).join('')}</div>`;
+  }
+  function puzzlesTab(R, c) {
+    const L = D.puzzles;
+    const head = `<p class="hint-line">학생이 5단계에서 <b>친구들에게 내기</b>를 누른 퍼즐이에요. 같은 반 학생 화면의 <b>친구 퍼즐 풀기</b> 목록에 바로 보여요. 알맞지 않은 이름이나 장난 퍼즐은 여기서 지우면 학생 화면에서도 사라져요.</p>`;
+    if (D.pzErr) return head + `<div class="err-box">퍼즐 목록을 불러오지 못했어요 (${esc(D.pzErr)}). Firestore 규칙을 새 <span class="mono">firestore.rules</span>로 바꿔 게시했는지 확인해 주세요.</div>`;
+    if (!L.length) return head + `<div class="empty">${open5(c) ? '아직 올라온 퍼즐이 없어요.' : '이 반은 5단계가 닫혀 있어요. 5단계를 열면 학생들이 퍼즐을 만들어 낼 수 있어요.'}</div>`;
+    const cards = L.map(x => {
+      const r = Codes.decode(x.code || '');
+      const vs = r ? r.pcs.map(q => q.v) : [];
+      const art = r ? C.svgOfPolys(vs.map(v => ({ v, kind: 'grout' })), { pad: 0.15, edges: G.boundarySegments(vs), edgeW: 1.6 }) : '';
+      const h = hashCode(x.code || '');
+      const solvers = R.filter(s => s.no !== x.no && (s.solvedIds || []).includes(h)).length;
+      return `<div class="pz-card"><div class="pz-art">${art}</div><b>${esc(x.title || '이름 없는 퍼즐')}</b>
+        <span class="hint-line">${D.hide ? `${x.no}번` : `${x.no}번 ${esc(x.name || '')}`} · 조각 ${x.n || (r ? r.pcs.length : '?')}개 · ${ago(toMs(x.createdAt))}</span>
+        <span class="hint-line">푼 친구 ${solvers}명</span>
+        <button class="btn small ghost" data-pzdel="${esc(x.id)}">지우기</button></div>`;
+    }).join('');
+    return head + `<div class="pz-grid">${cards}</div>`;
   }
   function draftFor(s) {
     const lv = s.use ?? 0;
@@ -1837,6 +1912,12 @@ if (typeof module !== 'undefined') module.exports = Codes;
       catch (err) { toast('바꾸지 못했어요: ' + (err.code || err.message), 3500); }
       return;
     }
+    const pd = t.closest('[data-pzdel]');
+    if (pd) {
+      if (!pd.dataset.sure) { pd.dataset.sure = '1'; pd.textContent = '한 번 더 누르면 지워요'; setTimeout(() => { if (pd.isConnected) { pd.dataset.sure = ''; pd.textContent = '지우기'; } }, 2800); return; }
+      try { await Store.deletePuzzle(D.sel, pd.dataset.pzdel); toast('퍼즐을 지웠어요. 학생 화면에서도 사라져요'); } catch (err) { toast('지우지 못했어요: ' + (err.code || err.message), 3500); }
+      return;
+    }
     const cp = t.closest('[data-copy]'); if (cp) { const ta = $(`[data-draft="${CSS.escape(cp.dataset.copy)}"]`); copyText(ta ? ta.value : '', ta); return; }
     const rg = t.closest('[data-regen]'); if (rg) { saveEvalSoon(rg.dataset.regen, { text: '' }, 0); return; }
     const st = t.closest('[data-stu]'); if (st && !t.closest('select, textarea, button')) { D.detail = st.dataset.stu; renderDetail(); return; }
@@ -1873,7 +1954,7 @@ if (typeof module !== 'undefined') module.exports = Codes;
         <label class="lab" for="rnName">학급 이름</label><div class="row"><input class="field" id="rnName" value="${esc(c.name || '')}" maxlength="20" style="max-width:260px"><button class="btn small" data-act="rename">이름 바꾸기</button></div>
         <p class="hint-line">코드 <span class="mono">${esc(c.id)}</span>는 바꿀 수 없어요.</p>
         <label class="check"><input type="checkbox" id="hideCls" ${c.hidden ? 'checked' : ''}> 학생 들어가기 화면에서 이 반 숨기기 (학기가 끝난 반)</label>
-        <div class="err-box"><b>학급 지우기</b><p>이 학급과 학생 기록 ${D.raw.length}명분, 선생님 메모를 모두 지워요. 되돌릴 수 없으니 먼저 CSV로 내려받아 두세요.</p><button class="btn small" data-act="delcls">학급과 기록 모두 지우기</button></div>`);
+        <div class="err-box"><b>학급 지우기</b><p>이 학급과 학생 기록 ${D.raw.length}명분, 친구 퍼즐 ${D.puzzles.length}개, 선생님 메모를 모두 지워요. 되돌릴 수 없으니 먼저 CSV로 내려받아 두세요.</p><button class="btn small" data-act="delcls">학급과 기록 모두 지우기</button></div>`);
       $('#hideCls').addEventListener('change', ev => Store.setClass(c.id, { hidden: ev.target.checked }).then(() => toast(ev.target.checked ? '들어가기 화면에서 숨겼어요' : '다시 보이게 했어요')));
     }
     else if (act === 'rename') { const c = cls(); const v = ($('#rnName').value || '').trim(); if (c && v) { await Store.setClass(c.id, { name: v }); toast('이름을 바꿨어요'); closeModal(); } }
