@@ -480,6 +480,7 @@ html, body { height: auto; min-height: 100%; }
 .tile .v small { font-family: var(--f-body); font-size: 13px; color: var(--ink-3); }
 .tile .s { font-size: 12px; color: var(--ink-3); }
 .panel-body { display: flex; flex-direction: column; gap: 10px; }
+.panel-body > p { margin: 0; }
 .tbl-scroll { overflow: auto; max-height: 72vh; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 table.dt { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .dt th { position: sticky; top: 0; z-index: 1; background: var(--board); text-align: left; font-weight: 600; color: var(--ink-2); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -544,7 +545,9 @@ select.field { min-height: 34px; padding: 4px 8px; width: auto; }
 .drawer .dt { font-size: 13px; }
 .made-list { display: flex; flex-direction: column; gap: 8px; }
 .made { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: center; background: var(--board); border-radius: 10px; padding: 6px 8px; }
-.made > svg { width: 64px; height: 64px; }
+.made-art { width: 64px; height: 64px; padding: 0; border: 0; border-radius: 10px; background: var(--surface); cursor: zoom-in; display: grid; place-items: center; }
+.made-art svg { width: 100%; height: 100%; }
+.made-art:hover { box-shadow: inset 0 0 0 2px var(--accent); }
 .made .code-field { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gate { max-width: 680px; width: 100%; margin: 32px auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; }
 .gate ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; }
@@ -576,6 +579,25 @@ button.wchip:hover { border-color: var(--good); }
 .wchip.pz small { font-size: 11px; font-weight: 500; color: var(--ink-2); }
 .wchip.other { background: transparent; border: 1px dashed var(--line); color: var(--ink-3); font-weight: 500; }
 .made-sv { display: flex; flex-direction: column; gap: 3px; margin: 3px 0 2px; }
+button.pz-art { width: 100%; padding: 0; border: 0; font: inherit; cursor: zoom-in; }
+button.pz-art:hover { box-shadow: inset 0 0 0 2px var(--accent); }
+/* 학생이 푼 퍼즐: 완성 모습 작은 그림 + 이름 + 낸 학생 번호 (누르면 크게) */
+.pzts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pzt {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 3px 10px 3px 3px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600; cursor: zoom-in;
+}
+.pzt:hover { border-color: var(--accent); }
+.pzt svg { width: 46px; height: 46px; flex: none; border-radius: 9px; background: var(--board); }
+.pzt-t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 8.5em; }
+.pzt small { font-size: 11px; font-weight: 500; color: var(--ink-3); }
+/* 퍼즐 크게 보기 */
+.pz-big { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.pz-big figure { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pz-big .pz-art { aspect-ratio: 1 / 1; }
+.pz-big .pz-art svg { width: 90%; height: 90%; }
+.pz-big figcaption { font-size: 13px; color: var(--ink-2); text-align: center; }
+@media (max-width: 560px) { .pz-big { grid-template-columns: 1fr; } }
 
 </style>
 </head>
@@ -1882,33 +1904,57 @@ if (typeof module !== 'undefined') module.exports = Codes;
       </div><span class="hint-line">퍼즐 ${L.length}개 · 친구 퍼즐을 하나 이상 푼 학생 ${solvedAny} / ${R.length}명</span></div>`;
     if (view === 'student') return head + bar + pzStudents(R);
     const cards = L.map(x => {
-      const r = Codes.decode(x.code || '');
-      const vs = r ? r.pcs.map(q => q.v) : [];
-      const art = r ? C.svgOfPolys(vs.map(v => ({ v, kind: 'grout' })), { pad: 0.15, edges: G.boundarySegments(vs), edgeW: 1.6 }) : '';
-      const solvers = R.filter(s => s.pzSolved.includes(x)).sort((a, b) => a.no - b.no);
-      return `<div class="pz-card"><div class="pz-art">${art}</div><b>${esc(x.title || '이름 없는 퍼즐')}</b>
-        <span class="hint-line">${D.hide ? `${x.no}번` : `${x.no}번 ${esc(x.name || '')}`} · 조각 ${x.n || (r ? r.pcs.length : '?')}개 · ${ago(toMs(x.createdAt))}</span>
+      const a = pzArt(x.code);
+      const solvers = R.filter(s => s.pzSolved.includes(x)).sort((p, q) => p.no - q.no);
+      return `<div class="pz-card"><button class="pz-art" data-pzopen="${esc(x.id)}" title="크게 보기 · 문제와 완성 모습">${a.done}</button><b>${esc(x.title || '이름 없는 퍼즐')}</b>
+        <span class="hint-line">${maker(x)} · 조각 ${x.n || a.n || '?'}개 · ${ago(toMs(x.createdAt))}</span>
         <span class="pz-solved">푼 친구 <b>${solvers.length}</b>명</span>
         ${solvers.length ? `<div class="wchips">${solvers.map(s => `<button class="wchip" data-stu="${esc(s.id)}" title="${who(s)} 자세히 보기">${who(s)}</button>`).join('')}</div>` : '<span class="hint-line">아직 푼 친구가 없어요</span>'}
         <button class="btn small ghost" data-pzdel="${esc(x.id)}">지우기</button></div>`;
     }).join('');
-    return head + bar + `<div class="pz-grid">${cards}</div>`;
+    return head + bar + `<p class="hint-line">그림은 퍼즐을 낸 학생이 완성한 모습이에요. 그림을 누르면 문제 모양과 함께 크게 볼 수 있어요.</p><div class="pz-grid">${cards}</div>`;
   }
-  // 학생이 푼 친구 퍼즐 칩: 퍼즐 이름과 낸 학생 번호
-  const pzChips = s => s.pzSolved.map(x => `<span class="wchip pz" title="${D.hide ? `${x.no}번` : `${x.no}번 ${esc(x.name || '')}`}이 낸 퍼즐">${esc(x.title || '이름 없는 퍼즐')}<small>${x.no}번</small></span>`).join('')
-    + (s.pzOther ? `<span class="wchip other" title="퍼즐 코드로 풀었거나, 지금은 목록에서 지운 퍼즐이에요">목록에 없는 퍼즐 ${s.pzOther}개</span>` : '');
+  // 퍼즐 그림: 문제(회색 모양)와 완성 모습(조각 색). 코드마다 한 번만 만들어 둔다
+  const artCache = new Map();
+  function pzArt(code) {
+    let a = artCache.get(code || '');
+    if (!a) {
+      const r = Codes.decode(code || '');
+      if (!r || !r.pcs.length) a = { q: '', done: '', n: 0 };
+      else {
+        const vs = r.pcs.map(p => p.v);
+        a = { q: C.svgOfPolys(vs.map(v => ({ v, kind: 'grout' })), { pad: 0.15, edges: G.boundarySegments(vs), edgeW: 1.6 }),
+          done: C.svgOfPolys(r.pcs.map(p => ({ v: p.v, n: p.n, kind: 'piece' })), { pad: 0.15 }), n: r.pcs.length };
+      }
+      artCache.set(code || '', a);
+    }
+    return a;
+  }
+  const maker = x => D.hide ? `${x.no}번` : `${x.no}번 ${esc(x.name || '')}`;
+  // 학생이 푼 친구 퍼즐: 완성 모습 작은 그림 + 퍼즐 이름 + 낸 학생 번호 (누르면 크게)
+  const pzChips = s => `<div class="pzts">${s.pzSolved.map(x => `<button class="pzt" data-pzopen="${esc(x.id)}" title="${esc(x.title || '이름 없는 퍼즐')} · ${maker(x)}이 낸 퍼즐 · 크게 보기">${pzArt(x.code).done}<span class="pzt-t">${esc(x.title || '이름 없는 퍼즐')}</span><small>${x.no}번</small></button>`).join('')}
+    ${s.pzOther ? `<span class="wchip other" title="퍼즐 코드로 풀었거나, 지금은 목록에서 지운 퍼즐이에요">목록에 없는 퍼즐 ${s.pzOther}개</span>` : ''}</div>`;
   // 학생마다 낸 퍼즐 수, 푼 친구 퍼즐과 그 목록
   function pzStudents(R) {
     const none = R.filter(s => !s.pzSolvedN && !s.pzOther);
-    const chips = pzChips;
     return `${none.length ? `<p class="missing">아직 친구 퍼즐을 하나도 안 푼 학생 ${none.length}명: ${none.map(s => `<b>${who(s)}</b>`).join(', ')}</p>` : ''}
       <div class="tbl-scroll"><table class="dt"><thead><tr>
-        ${th('no', '번호')}${D.hide ? '' : th('name', '이름')}${th('pzMadeN', '낸 퍼즐', 'num')}${th('pzSolvedN', '푼 친구 퍼즐', 'num')}<th>푼 퍼즐 (퍼즐 이름 · 낸 학생 번호)</th>
+        ${th('no', '번호')}${D.hide ? '' : th('name', '이름')}${th('pzMadeN', '낸 퍼즐', 'num')}${th('pzSolvedN', '푼 친구 퍼즐', 'num')}<th>푼 퍼즐 (완성 모습 · 퍼즐 이름 · 낸 학생 번호)</th>
       </tr></thead><tbody>
       ${R.map(s => `<tr data-stu="${esc(s.id)}"><td>${s.no}</td>${D.hide ? '' : `<td>${esc(s.name)}</td>`}<td class="num">${s.pzMadeN}</td><td class="num">${s.pzSolvedN}</td>
-        <td class="wrap">${s.pzSolvedN || s.pzOther ? `<div class="wchips">${chips(s)}</div>` : '<span class="hint-line">—</span>'}</td></tr>`).join('')}
+        <td class="wrap">${s.pzSolvedN || s.pzOther ? pzChips(s) : '<span class="hint-line">—</span>'}</td></tr>`).join('')}
       </tbody></table></div>
-      <p class="hint-line">학생을 누르면 그 학생이 만든 퍼즐을 누가 풀었는지도 볼 수 있어요.</p>`;
+      <p class="hint-line">작은 그림을 누르면 그 퍼즐을 크게 보고, 학생 줄을 누르면 그 학생이 만든 퍼즐을 누가 풀었는지도 볼 수 있어요.</p>`;
+  }
+  // 퍼즐 크게 보기: 문제 모양과 완성 모습, 푼 친구
+  function openPuzzle(x) {
+    const a = pzArt(x.code), h = hashCode(x.code || '');
+    const solvers = rows().filter(s => s.no !== x.no && (s.solvedIds || []).includes(h)).sort((p, q) => p.no - q.no);
+    openModal(`<div class="sheet-head"><h3>${esc(x.title || '이름 없는 퍼즐')}</h3><button class="btn small" data-act="closeModal">닫기</button></div>
+      <p class="hint-line">${maker(x)}이 낸 퍼즐 · 조각 ${x.n || a.n || '?'}개${x.createdAt ? ' · ' + ago(toMs(x.createdAt)) : ''}${x.shared === false ? ' · 친구들에게 내지 않은 퍼즐' : ''}</p>
+      <div class="pz-big"><figure><div class="pz-art">${a.q}</div><figcaption>문제 · 친구들이 채우는 모양</figcaption></figure><figure><div class="pz-art">${a.done}</div><figcaption>완성 모습 · 낸 학생이 놓은 조각</figcaption></figure></div>
+      <p><b>푼 친구 ${solvers.length}명</b></p>
+      ${solvers.length ? `<div class="wchips">${solvers.map(s => `<button class="wchip" data-stu="${esc(s.id)}" title="${who(s)} 자세히 보기">${who(s)}</button>`).join('')}</div>` : '<p class="hint-line">아직 푼 친구가 없어요.</p>'}`);
   }
   function draftFor(s) {
     const lv = s.use ?? 0;
@@ -1944,8 +1990,7 @@ if (typeof module !== 'undefined') module.exports = Codes;
     // 이 학생이 만든 퍼즐마다 푼 친구 (같은 반 학생의 solvedIds에 그 퍼즐 코드의 해시가 있으면 푼 것)
     const shared = new Set(D.puzzles.filter(x => x.sid === s.id).map(x => x.code));
     const made = (s.made || []).map((m, i) => {
-      const dec = Codes.decode(m.code || '');
-      const art = dec ? C.svgOfPolys(dec.pcs.map(p => ({ v: p.v, n: p.n, kind: 'piece' })), { pad: 0.2 }) : '';
+      const art = `<button class="made-art" data-madeopen="${i}" title="크게 보기 · 문제와 완성 모습">${pzArt(m.code).done}</button>`;
       const h = hashCode(m.code || '');
       const sv = D.raw.filter(d => d.no !== s.no && (d.solvedIds || []).includes(h)).sort((a, b) => a.no - b.no);
       return `<div class="made">${art}<div><b>${esc(m.title || '이름 없는 퍼즐')}</b> <span class="hint-line">조각 ${m.n || '?'}개${shared.has(m.code) ? ' · 친구들에게 냄' : ''}</span>
@@ -1969,7 +2014,7 @@ if (typeof module !== 'undefined') module.exports = Codes;
       <h4>만든 퍼즐 ${(s.made || []).length}개</h4>
       ${made ? `<div class="made-list">${made}</div>` : '<p class="hint-line">아직 만든 퍼즐이 없어요.</p>'}
       <h4>푼 친구 퍼즐 ${pzN}개</h4>
-      ${pzN ? `<div class="wchips">${pzChips(s)}</div>` : '<p class="hint-line">아직 푼 친구 퍼즐이 없어요.</p>'}
+      ${pzN ? pzChips(s) : '<p class="hint-line">아직 푼 친구 퍼즐이 없어요.</p>'}
       <h4>퍼즐별 기록</h4>
       <div class="tbl-scroll" style="max-height:none"><table class="dt"><thead><tr><th>퍼즐</th><th>결과</th><th class="num">가장 빠른 기록</th><th class="num">시도</th><th class="num"></th></tr></thead><tbody>${lt}</tbody></table></div>
       <h4>선생님 메모</h4>
@@ -2032,7 +2077,15 @@ if (typeof module !== 'undefined') module.exports = Codes;
     }
     const cp = t.closest('[data-copy]'); if (cp) { const ta = $(`[data-draft="${CSS.escape(cp.dataset.copy)}"]`); copyText(ta ? ta.value : '', ta); return; }
     const rg = t.closest('[data-regen]'); if (rg) { saveEvalSoon(rg.dataset.regen, { text: '' }, 0); return; }
-    const st = t.closest('[data-stu]'); if (st && !t.closest('select, textarea, button:not([data-stu])')) { D.detail = st.dataset.stu; renderDetail(); return; }
+    const po = t.closest('[data-pzopen]'); if (po) { const x = D.puzzles.find(p => p.id === po.dataset.pzopen); if (x) openPuzzle(x); return; }
+    const mo = t.closest('[data-madeopen]');
+    if (mo) {   // 학생 자세히 창의 '만든 퍼즐' 그림: 친구들에게 낸 퍼즐이면 그 정보로, 아니면 그 학생 기록으로 크게 보기
+      const raw = D.raw.find(d => d.id === D.detail); const m = raw && (raw.made || [])[+mo.dataset.madeopen];
+      if (m) openPuzzle(D.puzzles.find(p => p.sid === raw.id && p.code === m.code) || { code: m.code, title: m.title, no: raw.no, name: raw.name, n: m.n, shared: false });
+      return;
+    }
+    const st = t.closest('[data-stu]');
+    if (st && !t.closest('select, textarea, button:not([data-stu])')) { if (st.closest('#modal')) closeModal(); D.detail = st.dataset.stu; renderDetail(); return; }
     const a = t.closest('[data-act]'); if (!a) return;
     const act = a.dataset.act;
     if (act === 'signin') {
