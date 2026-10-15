@@ -1537,6 +1537,7 @@ const Lab = (() => {
 
   /* ---------- 저장 ---------- */
   const KEY = 'binteum.v1';
+  const PZ_MAX = 20;   // 친구에게 낼 퍼즐의 최대 조각 수 (너무 크면 풀기 어려움)
   const blank = () => ({ levels: {}, dex: {}, creative: null, uni: [], made: [], solved: 0, solvedIds: [], name: '', memo: '', memoAt: 0, hints: 0, time: 0, freeT: 0, owner: '' });
   let P = blank();
   try { const s = localStorage.getItem(KEY); if (s) P = Object.assign(blank(), JSON.parse(s)); } catch (e) { }
@@ -2140,7 +2141,7 @@ const Lab = (() => {
         <div class="missions">
           <div><span class="ck${P.uni.some(c => new Set(c.split('.')).size === 1) ? ' on' : ''}"></span>한 가지 조각으로 규칙 무늬 (꼭짓점 6개 이상)</div>
           <div><span class="ck${P.uni.some(c => new Set(c.split('.')).size > 1) ? ' on' : ''}"></span>두 가지 이상 조각으로 규칙 무늬</div>
-          <div><span class="ck${P.made.length ? ' on' : ''}"></span>나만의 퍼즐 만들기 (조각 8개 이상)</div>
+          <div><span class="ck${P.made.some(m => (m.n || 0) >= 8) ? ' on' : ''}"></span>나만의 퍼즐 만들기 (조각 8~${PZ_MAX}개)</div>
         </div></div>`;
     }
     $('#overlay').innerHTML = h;
@@ -3012,14 +3013,14 @@ const Lab = (() => {
   }
   function openMakePuzzle() {
     if (S.pcs.length < 3) { toast('조각을 3개 이상 놓아야 퍼즐을 만들 수 있어요'); return; }
-    if (S.pcs.length > 400) { toast('조각이 너무 많아요. 400개 이하로 만들어 주세요', 3000); return; }
+    if (S.pcs.length > PZ_MAX) { toast(`퍼즐은 조각 ${PZ_MAX}개까지 낼 수 있어요. 지금 ${S.pcs.length}개라서 ${S.pcs.length - PZ_MAX}개를 빼 주세요`, 4000); return; }
     const share = Sync.on && !!(WHO && WHO.classId);
     const items = S.pcs.map(p => ({ v: p.v, kind: 'grout' }));
     const seg = G.boundarySegments(S.pcs.map(p => p.v));
     const kinds = {}; S.pcs.forEach(p => kinds[p.n] = (kinds[p.n] || 0) + 1);
     const def = (WHO && WHO.name) ? WHO.name + '의 퍼즐' : (P.name ? P.name + '의 퍼즐' : '');
     openSheet(`<div class="sheet-head"><h3>퍼즐로 만들기</h3><button class="btn small" data-act="close">닫기</button></div>
-      <p>친구는 이 회색 모양을 똑같은 조각 <b>${Object.keys(kinds).map(n => `${SHORT[n]} ${kinds[n]}개`).join(', ')}</b>로 채워야 해요.</p>
+      <p>친구는 이 회색 모양을 똑같은 조각 <b>${Object.keys(kinds).map(n => `${SHORT[n]} ${kinds[n]}개`).join(', ')}</b>로 채워야 해요. (조각 ${S.pcs.length} / ${PZ_MAX}개)</p>
       <div class="done-art">${svgOfPolys(items, { edges: seg })}</div>
       <label class="lab" for="pzTitle">퍼즐 이름</label>
       <input class="field" id="pzTitle" maxlength="16" placeholder="예) 민수의 로켓" value="${esc(def)}">
