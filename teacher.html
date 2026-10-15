@@ -1906,13 +1906,13 @@ if (typeof module !== 'undefined') module.exports = Codes;
     const cards = L.map(x => {
       const a = pzArt(x.code);
       const solvers = R.filter(s => s.pzSolved.includes(x)).sort((p, q) => p.no - q.no);
-      return `<div class="pz-card"><button class="pz-art" data-pzopen="${esc(x.id)}" title="크게 보기 · 문제와 완성 모습">${a.done}</button><b>${esc(x.title || '이름 없는 퍼즐')}</b>
+      return `<div class="pz-card"><button class="pz-art" data-pzopen="${esc(x.id)}" title="눌러서 완성 모습 보기">${a.q}</button><b>${esc(x.title || '이름 없는 퍼즐')}</b>
         <span class="hint-line">${maker(x)} · 조각 ${x.n || a.n || '?'}개 · ${ago(toMs(x.createdAt))}</span>
         <span class="pz-solved">푼 친구 <b>${solvers.length}</b>명</span>
         ${solvers.length ? `<div class="wchips">${solvers.map(s => `<button class="wchip" data-stu="${esc(s.id)}" title="${who(s)} 자세히 보기">${who(s)}</button>`).join('')}</div>` : '<span class="hint-line">아직 푼 친구가 없어요</span>'}
         <button class="btn small ghost" data-pzdel="${esc(x.id)}">지우기</button></div>`;
     }).join('');
-    return head + bar + `<p class="hint-line">그림은 퍼즐을 낸 학생이 완성한 모습이에요. 그림을 누르면 문제 모양과 함께 크게 볼 수 있어요.</p><div class="pz-grid">${cards}</div>`;
+    return head + bar + `<p class="hint-line">회색 그림은 친구들이 채우는 문제 모양이에요. 그림을 누르면 낸 학생이 완성한 모습을 함께 크게 볼 수 있어요.</p><div class="pz-grid">${cards}</div>`;
   }
   // 퍼즐 그림: 문제(회색 모양)와 완성 모습(조각 색). 코드마다 한 번만 만들어 둔다
   const artCache = new Map();
@@ -1932,19 +1932,19 @@ if (typeof module !== 'undefined') module.exports = Codes;
   }
   const maker = x => D.hide ? `${x.no}번` : `${x.no}번 ${esc(x.name || '')}`;
   // 학생이 푼 친구 퍼즐: 완성 모습 작은 그림 + 퍼즐 이름 + 낸 학생 번호 (누르면 크게)
-  const pzChips = s => `<div class="pzts">${s.pzSolved.map(x => `<button class="pzt" data-pzopen="${esc(x.id)}" title="${esc(x.title || '이름 없는 퍼즐')} · ${maker(x)}이 낸 퍼즐 · 크게 보기">${pzArt(x.code).done}<span class="pzt-t">${esc(x.title || '이름 없는 퍼즐')}</span><small>${x.no}번</small></button>`).join('')}
+  const pzChips = s => `<div class="pzts">${s.pzSolved.map(x => `<button class="pzt" data-pzopen="${esc(x.id)}" title="${esc(x.title || '이름 없는 퍼즐')} · ${maker(x)}이 낸 퍼즐 · 눌러서 완성 모습 보기">${pzArt(x.code).q}<span class="pzt-t">${esc(x.title || '이름 없는 퍼즐')}</span><small>${x.no}번</small></button>`).join('')}
     ${s.pzOther ? `<span class="wchip other" title="퍼즐 코드로 풀었거나, 지금은 목록에서 지운 퍼즐이에요">목록에 없는 퍼즐 ${s.pzOther}개</span>` : ''}</div>`;
   // 학생마다 낸 퍼즐 수, 푼 친구 퍼즐과 그 목록
   function pzStudents(R) {
     const none = R.filter(s => !s.pzSolvedN && !s.pzOther);
     return `${none.length ? `<p class="missing">아직 친구 퍼즐을 하나도 안 푼 학생 ${none.length}명: ${none.map(s => `<b>${who(s)}</b>`).join(', ')}</p>` : ''}
       <div class="tbl-scroll"><table class="dt"><thead><tr>
-        ${th('no', '번호')}${D.hide ? '' : th('name', '이름')}${th('pzMadeN', '낸 퍼즐', 'num')}${th('pzSolvedN', '푼 친구 퍼즐', 'num')}<th>푼 퍼즐 (완성 모습 · 퍼즐 이름 · 낸 학생 번호)</th>
+        ${th('no', '번호')}${D.hide ? '' : th('name', '이름')}${th('pzMadeN', '낸 퍼즐', 'num')}${th('pzSolvedN', '푼 친구 퍼즐', 'num')}<th>푼 퍼즐 (모양 · 퍼즐 이름 · 낸 학생 번호)</th>
       </tr></thead><tbody>
       ${R.map(s => `<tr data-stu="${esc(s.id)}"><td>${s.no}</td>${D.hide ? '' : `<td>${esc(s.name)}</td>`}<td class="num">${s.pzMadeN}</td><td class="num">${s.pzSolvedN}</td>
         <td class="wrap">${s.pzSolvedN || s.pzOther ? pzChips(s) : '<span class="hint-line">—</span>'}</td></tr>`).join('')}
       </tbody></table></div>
-      <p class="hint-line">작은 그림을 누르면 그 퍼즐을 크게 보고, 학생 줄을 누르면 그 학생이 만든 퍼즐을 누가 풀었는지도 볼 수 있어요.</p>`;
+      <p class="hint-line">작은 그림을 누르면 그 퍼즐의 완성 모습을 크게 보고, 학생 줄을 누르면 그 학생이 만든 퍼즐을 누가 풀었는지도 볼 수 있어요.</p>`;
   }
   // 퍼즐 크게 보기: 문제 모양과 완성 모습, 푼 친구
   function openPuzzle(x) {
@@ -1990,7 +1990,7 @@ if (typeof module !== 'undefined') module.exports = Codes;
     // 이 학생이 만든 퍼즐마다 푼 친구 (같은 반 학생의 solvedIds에 그 퍼즐 코드의 해시가 있으면 푼 것)
     const shared = new Set(D.puzzles.filter(x => x.sid === s.id).map(x => x.code));
     const made = (s.made || []).map((m, i) => {
-      const art = `<button class="made-art" data-madeopen="${i}" title="크게 보기 · 문제와 완성 모습">${pzArt(m.code).done}</button>`;
+      const art = `<button class="made-art" data-madeopen="${i}" title="눌러서 완성 모습 보기">${pzArt(m.code).q}</button>`;
       const h = hashCode(m.code || '');
       const sv = D.raw.filter(d => d.no !== s.no && (d.solvedIds || []).includes(h)).sort((a, b) => a.no - b.no);
       return `<div class="made">${art}<div><b>${esc(m.title || '이름 없는 퍼즐')}</b> <span class="hint-line">조각 ${m.n || '?'}개${shared.has(m.code) ? ' · 친구들에게 냄' : ''}</span>
